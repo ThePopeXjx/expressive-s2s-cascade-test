@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+
+# Local env / tooling
+.env
+.DS_Store
+
+# Runtime artifacts
+logs/*.log
+outputs/audio/*.wav
+outputs/transcript/*.json
+outputs/metadata/*.json
+
+# Hugging Face / model caches (if accidentally created inside repo)
+.cache/
