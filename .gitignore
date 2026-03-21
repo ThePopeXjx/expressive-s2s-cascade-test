@@ -12,6 +12,7 @@ venv/
 # Runtime artifacts
 logs/*.log
 outputs/audio/*.wav
+outputs/speech/*.wav
 outputs/transcript/*.json
 outputs/metadata/*.json
 

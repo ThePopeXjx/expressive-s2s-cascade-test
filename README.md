@@ -1,76 +1,73 @@
-# Cascade Test - Step 1 (Transcribe Expresso with Qwen-Omni-30B)
+# Cascade Test Pipeline
 
-This stage transcribes `ylacombe/expresso` audio with locally deployed `Qwen/Qwen3-Omni-30B-A3B-Instruct` (2x A6000), and exports three structured outputs:
+This project currently includes 2 steps:
 
-- `outputs/transcript/{id}.json`: model-generated transcript
-- `outputs/metadata/{id}.json`: original metadata (`id`, `speaker_id`, `style`, `text`, etc.)
-- `outputs/audio/{id}.wav`: extracted audio
-
-`text` from dataset is treated as metadata only and is never used as transcript input.
+- Step 1 (`Qwen-Omni-30B`): transcribe / translate Expresso audio to Chinese text
+- Step 2 (`CosyVoice3`): synthesize Chinese speech with original speaker style/emotion prompt audio
 
 ## Project Layout
 
-- `codes/transcribe.py`: transcription pipeline (CLI, logging, progress bar, I/O concurrency)
-- `scripts/run_transcribe.sh`: main runner
-- `scripts/run_transcirbe.sh`: compatibility entry (requested name, forwards to main runner)
-- `outputs/`: generated artifacts
-- `logs/`: run logs (`run_transcribe_MMDDHHMM.log`)
+- `codes/transcribe.py`: Step-1 pipeline
+- `codes/tts.py`: Step-2 pipeline
+- `scripts/run_transcribe.sh`: Step-1 main runner
+- `scripts/run_transcirbe.sh`: Step-1 compatibility entry
+- `scripts/run_tts.sh`: Step-2 runner
+- `outputs/`:
+  - `audio/{id}.wav`
+  - `transcript/{id}.json`
+  - `metadata/{id}.json`
+  - `speech/{id}.wav`
+- `logs/`: run logs (`run_transcribe_MMDDHHMM.log`, `run_tts_MMDDHHMM.log`)
 
 ## Dependencies
 
-Install in your runtime environment (example):
+These two steps may need two seperate environments.
+
+For Step-1:
 
 ```bash
-pip install torch transformers datasets soundfile tqdm qwen-omni-utils
+pip install -r requirements-step1.txt
 ```
 
-You also need local GPU environment ready for Qwen-Omni. The runner sets:
+For Step-2, refer to [CosyVoice3 official repository](https://github.com/FunAudioLLM/CosyVoice) for detailed installation guide.
 
-```bash
-export CUDA_VISIBLE_DEVICES=0,1
-```
-
-## Usage
-
-Main entry:
+## Step 1 Usage (Transcribe / Translate)
 
 ```bash
 bash scripts/run_transcirbe.sh
 ```
 
-Override any argument at runtime (passed through to Python):
+Key outputs:
+
+- `outputs/audio/{id}.wav`
+- `outputs/transcript/{id}.json`
+- `outputs/metadata/{id}.json`
+
+## Step 2 Usage (TTS with Style Prompt)
 
 ```bash
-bash scripts/run_transcirbe.sh --split validation --max-samples 100 --sample-start 50
+bash scripts/run_tts.sh
 ```
 
-## Important CLI Args
+Step-2 input and output:
 
-From `codes/transcribe.py`:
+- Input transcript: `outputs/transcript/{id}.json` (Chinese text in `transcript` field)
+- Input prompt audio: `outputs/audio/{id}.wav` (reference speaker style/emotion)
+- Output speech: `outputs/speech/{id}.wav`
 
-- `--dataset-name` (default: `ylacombe/expresso`)
-- `--dataset-config` (optional)
-- `--split` (default: `train`)
-- `--model-path` (default: `Qwen/Qwen3-Omni-30B-A3B-Instruct`)
-- `--model-cache-dir` (default: `/mnt/data1/jiaxingxu/.cache/huggingface`)
-- `--transcribe-prompt` (default: `Transcribe the speech into plain text.`)
+Implementation detail:
+
+- Step-2 uses `CosyVoice3` `inference_cross_lingual(...)`
+- TTS text default format: `You are a helpful assistant.<|endofprompt|>{中文文本}`
+- CosyVoice import path is injected at runtime so `codes/tts.py` can import from external `/home/jiaxingxu/CosyVoice`
+
+## Useful Args
+
+Both steps support:
+
 - `--sample-start`, `--sample-end`, `--max-samples`
+- Step-2 additionally supports `--max-samples-per-style` (default in `run_tts.sh`: `25`), counted per `(speaker, style)` group parsed from `{id}`
 - `--resume` / `--no-resume`
 - `--continue-on-error` / `--stop-on-error`
-- `--io-workers` (concurrent file writing workers)
+- `--io-workers`
 - `--log-level`, `--log-file-prefix`, `--logs-dir`
-
-## Implementation Notes
-
-- Model invocation follows Qwen cookbook style:
-  - `Qwen3OmniMoeForConditionalGeneration`
-  - `Qwen3OmniMoeProcessor`
-  - `process_mm_info(...)`
-- Progress bars:
-  - sample-level transcription progress
-  - final file-write completion progress
-- Logging:
-  - console + file logging
-  - log filename format example: `run_transcribe_03201339.log`
-- Resume behavior:
-  - when `--resume` is enabled, sample is skipped only if all three files already exist (`transcript`, `metadata`, `audio`).

@@ -14,7 +14,7 @@ DATASET_CONFIG=""
 SPLIT="train"
 
 MODEL_PATH="Qwen/Qwen3-Omni-30B-A3B-Instruct"
-TRANSCRIBE_PROMPT="Transcribe the speech into plain text."
+TRANSCRIBE_PROMPT="Translate the speech into Chinese text."
 MAX_NEW_TOKENS=1024
 USE_FLASH_ATTN2=flash
 
