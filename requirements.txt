@@ -1,4 +1,7 @@
+accelerate
 torch
+torchcodec
+torchvision
 transformers
 datasets
 soundfile

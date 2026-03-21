@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 CACHE_DIR="/mnt/data1/jiaxingxu/.cache/huggingface/datasets"
+MODEL_CACHE_DIR="/mnt/data1/jiaxingxu/.cache/huggingface"
 OUTPUT_DIR="${PROJECT_ROOT}/outputs"
 LOGS_DIR="${PROJECT_ROOT}/logs"
 
@@ -15,7 +16,7 @@ SPLIT="train"
 MODEL_PATH="Qwen/Qwen3-Omni-30B-A3B-Instruct"
 TRANSCRIBE_PROMPT="Transcribe the speech into plain text."
 MAX_NEW_TOKENS=1024
-USE_FLASH_ATTN2=true
+USE_FLASH_ATTN2=flash
 
 SAMPLE_START=0
 SAMPLE_END=""
@@ -35,6 +36,7 @@ ARGS=(
   --dataset-name "${DATASET_NAME}"
   --split "${SPLIT}"
   --model-path "${MODEL_PATH}"
+  --model-cache-dir "${MODEL_CACHE_DIR}"
   --transcribe-prompt "${TRANSCRIBE_PROMPT}"
   --max-new-tokens "${MAX_NEW_TOKENS}"
   --sample-start "${SAMPLE_START}"

@@ -52,6 +52,7 @@ From `codes/transcribe.py`:
 - `--dataset-config` (optional)
 - `--split` (default: `train`)
 - `--model-path` (default: `Qwen/Qwen3-Omni-30B-A3B-Instruct`)
+- `--model-cache-dir` (default: `/mnt/data1/jiaxingxu/.cache/huggingface`)
 - `--transcribe-prompt` (default: `Transcribe the speech into plain text.`)
 - `--sample-start`, `--sample-end`, `--max-samples`
 - `--resume` / `--no-resume`

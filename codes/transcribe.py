@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import soundfile as sf
@@ -37,6 +38,17 @@ class Paths:
     logs_dir: Path
 
 
+ET_TZ = ZoneInfo("America/New_York")
+
+
+class EasternTimeFormatter(logging.Formatter):
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        dt = datetime.fromtimestamp(record.created, tz=ET_TZ)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Transcribe ylacombe/expresso using Qwen-Omni-30B and save outputs."
@@ -46,6 +58,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-config", default=None)
     parser.add_argument("--split", default="train")
     parser.add_argument("--cache-dir", default=None)
+    parser.add_argument(
+        "--model-cache-dir",
+        default="/mnt/data1/jiaxingxu/.cache/huggingface",
+        help="Cache directory for model/processor downloads from Hugging Face Hub.",
+    )
 
     parser.add_argument(
         "--model-path",
@@ -141,14 +158,14 @@ def ensure_dirs(output_root: Path, logs_dir: Path) -> Paths:
 
 
 def setup_logger(logs_dir: Path, prefix: str, level: str) -> tuple[logging.Logger, Path]:
-    timestamp = datetime.now().strftime("%m%d%H%M")
+    timestamp = datetime.now(ET_TZ).strftime("%m%d%H%M")
     log_path = logs_dir / f"{prefix}_{timestamp}.log"
 
     logger = logging.getLogger("transcribe")
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     logger.handlers.clear()
 
-    formatter = logging.Formatter(
+    formatter = EasternTimeFormatter(
         "%(asctime)s | %(levelname)s | %(message)s", "%Y-%m-%d %H:%M:%S"
     )
 
@@ -224,7 +241,20 @@ def load_subset(args: argparse.Namespace, logger: logging.Logger):
 
 
 def load_model(args: argparse.Namespace, logger: logging.Logger):
-    logger.info("Loading model and processor from %s", args.model_path)
+    model_ref = args.model_path
+    model_ref_path = Path(model_ref)
+    if model_ref_path.is_absolute() and not model_ref_path.exists():
+        raise FileNotFoundError(
+            f"--model-path points to a non-existent local path: {model_ref}. "
+            "Use a valid local snapshot directory or an HF repo id like "
+            "'Qwen/Qwen3-Omni-30B-A3B-Instruct'."
+        )
+
+    logger.info(
+        "Loading model and processor from %s (model_cache_dir=%s)",
+        model_ref,
+        args.model_cache_dir,
+    )
 
     model_kwargs: dict[str, Any] = {
         "dtype": "auto",
@@ -233,12 +263,32 @@ def load_model(args: argparse.Namespace, logger: logging.Logger):
     }
     if args.use_flash_attn2:
         model_kwargs["attn_implementation"] = "flash_attention_2"
+    if args.model_cache_dir:
+        model_kwargs["cache_dir"] = args.model_cache_dir
 
-    model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
-        args.model_path,
-        **model_kwargs,
-    )
-    processor = Qwen3OmniMoeProcessor.from_pretrained(args.model_path)
+    try:
+        model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
+            model_ref,
+            **model_kwargs,
+        )
+    except ImportError as exc:
+        # Graceful fallback when flash-attn is requested but unavailable.
+        if args.use_flash_attn2 and "flash_attn" in str(exc):
+            logger.warning(
+                "FlashAttention2 requested but flash_attn is not installed. "
+                "Falling back to default attention implementation."
+            )
+            model_kwargs.pop("attn_implementation", None)
+            model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
+                model_ref,
+                **model_kwargs,
+            )
+        else:
+            raise
+    processor_kwargs: dict[str, Any] = {}
+    if args.model_cache_dir:
+        processor_kwargs["cache_dir"] = args.model_cache_dir
+    processor = Qwen3OmniMoeProcessor.from_pretrained(model_ref, **processor_kwargs)
 
     visible = os.environ.get("CUDA_VISIBLE_DEVICES", "<not-set>")
     logger.info(
@@ -251,7 +301,33 @@ def load_model(args: argparse.Namespace, logger: logging.Logger):
 
 
 def decode_response(generated: Any, input_len: int, processor: Qwen3OmniMoeProcessor) -> str:
-    sequences = generated.sequences if hasattr(generated, "sequences") else generated
+    if isinstance(generated, str):
+        return generated.strip()
+
+    sequences: Any = generated
+    if hasattr(generated, "sequences"):
+        sequences = generated.sequences
+    elif isinstance(generated, dict) and "sequences" in generated:
+        sequences = generated["sequences"]
+    elif isinstance(generated, (tuple, list)):
+        for item in generated:
+            if hasattr(item, "sequences"):
+                sequences = item.sequences
+                break
+            if torch.is_tensor(item):
+                sequences = item
+                break
+            if isinstance(item, dict) and "sequences" in item:
+                sequences = item["sequences"]
+                break
+            if isinstance(item, str):
+                return item.strip()
+
+    if not torch.is_tensor(sequences):
+        raise TypeError(
+            f"Unsupported generate output type for decoding: {type(generated)}"
+        )
+
     output_ids = sequences[:, input_len:]
     text = processor.batch_decode(
         output_ids,
@@ -295,10 +371,16 @@ def transcribe_one(
     )
 
     model_device = next(model.parameters()).device
+    model_dtype = next(model.parameters()).dtype
     inputs = inputs.to(model_device)
+    # Keep integer tensors (e.g., token ids) unchanged, and align floating inputs
+    # (e.g., audio features) with model dtype to avoid conv dtype mismatch.
+    for key, value in inputs.items():
+        if torch.is_tensor(value) and value.is_floating_point() and value.dtype != model_dtype:
+            inputs[key] = value.to(dtype=model_dtype)
 
     with torch.inference_mode():
-        generated, _ = model.generate(
+        generated = model.generate(
             **inputs,
             thinker_return_dict_in_generate=True,
             thinker_max_new_tokens=max_new_tokens,
