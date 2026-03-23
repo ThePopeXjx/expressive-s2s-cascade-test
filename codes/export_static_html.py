@@ -17,11 +17,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--outputs-dir",
         default="/home/jiaxingxu/expressive-s2s/cascade-test/outputs",
-        help="Root outputs dir containing audio/ transcript/ metadata/ speech/.",
+        help="Root outputs dir containing audio/ transcript/ metadata/ speech_cosyvoice3/.",
     )
     parser.add_argument(
         "--export-dir",
-        default="/home/jiaxingxu/expressive-s2s/cascade-test/outputs/static_viewer",
+        default="/home/jiaxingxu/expressive-s2s/cascade-test/outputs/static_viewer_cosyvoice3",
         help="Destination directory for static HTML package.",
     )
     parser.add_argument(
@@ -49,14 +49,14 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def build_records(outputs_dir: Path, max_samples: int | None) -> list[dict[str, Any]]:
-    speech_dir = outputs_dir / "speech"
+    speech_cosyvoice3_dir = outputs_dir / "speech_cosyvoice3"
     audio_dir = outputs_dir / "audio"
     transcript_dir = outputs_dir / "transcript"
     metadata_dir = outputs_dir / "metadata"
 
     records: list[dict[str, Any]] = []
-    for speech_path in sorted(speech_dir.glob("*.wav")):
-        item_id = speech_path.stem
+    for speech_cosyvoice3_path in sorted(speech_cosyvoice3_dir.glob("*.wav")):
+        item_id = speech_cosyvoice3_path.stem
         source_audio = audio_dir / f"{item_id}.wav"
         transcript_json = transcript_dir / f"{item_id}.json"
         metadata_json = metadata_dir / f"{item_id}.json"
@@ -87,7 +87,7 @@ def build_records(outputs_dir: Path, max_samples: int | None) -> list[dict[str, 
                 "source_text": source_text,
                 "target_transcript": target_transcript,
                 "source_audio": f"audio/{item_id}.wav",
-                "target_speech": f"speech/{item_id}.wav",
+                "target_speech_cosyvoice3": f"speech_cosyvoice3/{item_id}.wav",
             }
         )
 
@@ -224,7 +224,7 @@ function render() {{
           <div class="label">Target Transcript</div>
           <div class="text">${{esc(x.target_transcript)}}</div>
           <div class="label" style="margin-top:8px;">Target Speech</div>
-          <audio controls preload="none" src="${{esc(x.target_speech)}}"></audio>
+          <audio controls preload="none" src="${{esc(x.target_speech_cosyvoice3)}}"></audio>
         </div>
       </div>
     </section>
@@ -271,15 +271,17 @@ def export_assets(
     records: list[dict[str, Any]], outputs_dir: Path, export_dir: Path, mode: str
 ) -> None:
     dst_audio = export_dir / "audio"
-    dst_speech = export_dir / "speech"
+    dst_speech_cosyvoice3 = export_dir / "speech_cosyvoice3"
     dst_audio.mkdir(parents=True, exist_ok=True)
-    dst_speech.mkdir(parents=True, exist_ok=True)
+    dst_speech_cosyvoice3.mkdir(parents=True, exist_ok=True)
 
     for rec in records:
         item_id = rec["id"]
         place_asset(outputs_dir / "audio" / f"{item_id}.wav", dst_audio / f"{item_id}.wav", mode)
         place_asset(
-            outputs_dir / "speech" / f"{item_id}.wav", dst_speech / f"{item_id}.wav", mode
+            outputs_dir / "speech_cosyvoice3" / f"{item_id}.wav",
+            dst_speech_cosyvoice3 / f"{item_id}.wav",
+            mode,
         )
 
 
@@ -298,7 +300,9 @@ def main() -> None:
 
     records = build_records(outputs_dir, args.max_samples)
     if not records:
-        raise RuntimeError("No eligible samples found (need matching speech + source audio).")
+        raise RuntimeError(
+            "No eligible samples found (need matching speech_cosyvoice3 + source audio)."
+        )
 
     export_assets(records, outputs_dir, export_dir, args.asset_mode)
     write_html(records, export_dir)

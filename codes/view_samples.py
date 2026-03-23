@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,17 +16,26 @@ import streamlit as st
 st.set_page_config(page_title="Cascade Samples Viewer", layout="wide")
 
 
+def parse_app_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--outputs-dir", required=True)
+    parser.add_argument("--speech-cosyvoice3-subdir", required=True)
+    parser.add_argument("--title", default="Cascade S2S Sample Viewer")
+    args, _ = parser.parse_known_args(sys.argv[1:])
+    return args
+
+
 @st.cache_data(show_spinner=False)
-def load_records(outputs_dir: str) -> pd.DataFrame:
+def load_records(outputs_dir: str, speech_cosyvoice3_subdir: str) -> pd.DataFrame:
     root = Path(outputs_dir)
-    speech_dir = root / "speech"
+    speech_cosyvoice3_dir = root / speech_cosyvoice3_subdir
     audio_dir = root / "audio"
     transcript_dir = root / "transcript"
     metadata_dir = root / "metadata"
 
     records: list[dict[str, Any]] = []
-    for speech_path in sorted(speech_dir.glob("*.wav")):
-        item_id = speech_path.stem
+    for speech_cosyvoice3_path in sorted(speech_cosyvoice3_dir.glob("*.wav")):
+        item_id = speech_cosyvoice3_path.stem
         source_audio = audio_dir / f"{item_id}.wav"
         if not source_audio.exists():
             continue
@@ -60,7 +71,7 @@ def load_records(outputs_dir: str) -> pd.DataFrame:
                 "source_text": source_text,
                 "target_transcript": target_transcript,
                 "source_audio_path": str(source_audio),
-                "target_speech_path": str(speech_path),
+                "target_speech_cosyvoice3_path": str(speech_cosyvoice3_path),
             }
         )
 
@@ -72,14 +83,19 @@ def read_audio_bytes(path: str) -> bytes:
 
 
 def main() -> None:
-    st.title("Cascade S2S Sample Viewer")
+    app_args = parse_app_args()
+    st.title(app_args.title)
 
-    default_outputs = "/home/jiaxingxu/expressive-s2s/cascade-test/outputs"
-    outputs_dir = st.sidebar.text_input("Outputs dir", value=default_outputs)
+    outputs_dir = st.sidebar.text_input("Outputs dir", value=app_args.outputs_dir)
+    speech_subdir = st.sidebar.text_input(
+        "Target speech subdir", value=app_args.speech_cosyvoice3_subdir
+    )
 
-    df = load_records(outputs_dir)
+    df = load_records(outputs_dir, speech_subdir)
     if df.empty:
-        st.warning("No samples found. Only files with outputs/speech/{id}.wav are included.")
+        st.warning(
+            f"No samples found. Only files with outputs/{speech_subdir}/{{id}}.wav are included."
+        )
         return
 
     st.sidebar.markdown("### Filters")
@@ -143,7 +159,7 @@ def main() -> None:
                 st.markdown("**Target Transcript**")
                 st.write(row["target_transcript"])
                 st.markdown("**Target Speech**")
-                st.audio(read_audio_bytes(row["target_speech_path"]), format="audio/wav")
+                st.audio(read_audio_bytes(row["target_speech_cosyvoice3_path"]), format="audio/wav")
 
 
 if __name__ == "__main__":

@@ -4,13 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-COSYVOICE_ROOT="/home/jiaxingxu/CosyVoice"
-COSYVOICE_MODEL_DIR="/mnt/data1/jiaxingxu/pretrained_models/Fun-CosyVoice3-0.5B"
+COSYVOICE3_ROOT="/home/jiaxingxu/CosyVoice"
+COSYVOICE3_MODEL_DIR="/mnt/data1/jiaxingxu/pretrained_models/Fun-CosyVoice3-0.5B"
 
 OUTPUT_DIR="${PROJECT_ROOT}/outputs"
 TRANSCRIPT_DIR="${OUTPUT_DIR}/transcript"
 PROMPT_AUDIO_DIR="${OUTPUT_DIR}/audio"
-SPEECH_DIR="${OUTPUT_DIR}/speech"
+SPEECH_COSYVOICE3_DIR="${OUTPUT_DIR}/speech_cosyvoice3"
 LOGS_DIR="${PROJECT_ROOT}/logs"
 
 SYSTEM_PROMPT="You are a helpful assistant.<|endofprompt|>"
@@ -24,17 +24,17 @@ MAX_SAMPLES_PER_STYLE=25
 
 IO_WORKERS=4
 LOG_LEVEL="INFO"
-LOG_FILE_PREFIX="run_tts"
+LOG_FILE_PREFIX="run_tts_cosyvoice3"
 RESUME=true
 CONTINUE_ON_ERROR=true
 
 ARGS=(
-  --cosyvoice-root "${COSYVOICE_ROOT}"
-  --cosyvoice-model-dir "${COSYVOICE_MODEL_DIR}"
+  --cosyvoice3-root "${COSYVOICE3_ROOT}"
+  --cosyvoice3-model-dir "${COSYVOICE3_MODEL_DIR}"
   --output-dir "${OUTPUT_DIR}"
   --transcript-dir "${TRANSCRIPT_DIR}"
   --prompt-audio-dir "${PROMPT_AUDIO_DIR}"
-  --speech-dir "${SPEECH_DIR}"
+  --speech-cosyvoice3-dir "${SPEECH_COSYVOICE3_DIR}"
   --system-prompt "${SYSTEM_PROMPT}"
   --sample-start "${SAMPLE_START}"
   --io-workers "${IO_WORKERS}"
@@ -77,6 +77,6 @@ else
   ARGS+=(--stop-on-error)
 fi
 
-python "${PROJECT_ROOT}/codes/tts.py" \
+python "${PROJECT_ROOT}/codes/tts_cosyvoice3.py" \
   "${ARGS[@]}" \
   "$@"

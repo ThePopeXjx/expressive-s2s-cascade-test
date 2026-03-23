@@ -12,10 +12,10 @@ venv/
 # Runtime artifacts
 logs/*.log
 outputs/audio/*.wav
-outputs/speech/*.wav
+outputs/speech_cosyvoice3/*.wav
 outputs/transcript/*.json
 outputs/metadata/*.json
-outputs/static_viewer/
+outputs/static_viewer_cosyvoice3/
 
 # Hugging Face / model caches (if accidentally created inside repo)
 .cache/

@@ -10,20 +10,20 @@ This project currently includes 2 steps:
 ## Project Layout
 
 - `codes/transcribe.py`: Step-1 pipeline
-- `codes/tts.py`: Step-2 pipeline
+- `codes/tts_cosyvoice3.py`: Step-2 CosyVoice3 pipeline
 - `codes/view_samples.py`: sample viewer web app
 - `codes/export_static_html.py`: export static HTML package
 - `scripts/run_transcribe.sh`: Step-1 main runner
 - `scripts/run_transcirbe.sh`: Step-1 compatibility entry
-- `scripts/run_tts.sh`: Step-2 runner
+- `scripts/run_tts_cosyvoice3.sh`: Step-2 CosyVoice3 runner
 - `scripts/run_viewer.sh`: viewer runner
 - `scripts/run_export_html.sh`: static HTML exporter
 - `outputs/`:
   - `audio/{id}.wav`
   - `transcript/{id}.json`
   - `metadata/{id}.json`
-  - `speech/{id}.wav`
-- `logs/`: run logs (`run_transcribe_MMDDHHMM.log`, `run_tts_MMDDHHMM.log`)
+  - `speech_cosyvoice3/{id}.wav`
+- `logs/`: run logs (`run_transcribe_MMDDHHMM.log`, `run_tts_cosyvoice3_MMDDHHMM.log`, `run_viewer_MMDDHHMM.log`)
 
 ## Dependencies
 
@@ -58,27 +58,27 @@ Key outputs:
 ## Step 2 Usage (TTS with Style Prompt)
 
 ```bash
-bash scripts/run_tts.sh
+bash scripts/run_tts_cosyvoice3.sh
 ```
 
 Step-2 input and output:
 
 - Input transcript: `outputs/transcript/{id}.json` (Chinese text in `transcript` field)
 - Input prompt audio: `outputs/audio/{id}.wav` (reference speaker style/emotion)
-- Output speech: `outputs/speech/{id}.wav`
+- Output speech: `outputs/speech_cosyvoice3/{id}.wav`
 
 Implementation detail:
 
 - Step-2 uses `CosyVoice3` `inference_cross_lingual(...)`
 - TTS text default format: `You are a helpful assistant.<|endofprompt|>{中文文本}`
-- CosyVoice import path is injected at runtime so `codes/tts.py` can import from external `/home/jiaxingxu/CosyVoice`
+- CosyVoice import path is injected at runtime so `codes/tts_cosyvoice3.py` can import from external `/home/jiaxingxu/CosyVoice`
 
 ## Useful Args
 
 Both steps support:
 
 - `--sample-start`, `--sample-end`, `--max-samples`
-- Step-2 additionally supports `--max-samples-per-style` (default in `run_tts.sh`: `25`), counted per `(speaker, style)` group parsed from `{id}`
+- Step-2 additionally supports `--max-samples-per-style` (default in `run_tts_cosyvoice3.sh`: `25`), counted per `(speaker, style)` group parsed from `{id}`
 - `--resume` / `--no-resume`
 - `--continue-on-error` / `--stop-on-error`
 - `--io-workers`
@@ -91,6 +91,12 @@ On remote server:
 ```bash
 bash scripts/run_viewer.sh
 ```
+
+`run_viewer.sh` passes app args to `view_samples.py` (instead of hardcoding in Python), including:
+
+- `--outputs-dir`
+- `--speech-cosyvoice3-subdir`
+- `--title`
 
 Then on your local machine (new terminal), create SSH tunnel:
 
@@ -115,7 +121,7 @@ bash scripts/run_export_html.sh
 Default output directory:
 
 ```text
-outputs/static_viewer/
+outputs/static_viewer_cosyvoice3/
 ```
 
 Default exporter behavior uses `--asset-mode hardlink` to avoid duplicating local disk usage while preparing package.
@@ -124,11 +130,11 @@ It contains:
 
 - `index.html`
 - `audio/{id}.wav` (source audio)
-- `speech/{id}.wav` (target speech)
+- `speech_cosyvoice3/{id}.wav` (target speech)
 
 You can zip and send it to collaborators:
 
 ```bash
 cd outputs
-zip -r static_viewer.zip static_viewer
+zip -r static_viewer_cosyvoice3.zip static_viewer_cosyvoice3
 ```

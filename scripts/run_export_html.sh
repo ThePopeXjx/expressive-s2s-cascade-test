@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 OUTPUTS_DIR="${PROJECT_ROOT}/outputs"
-EXPORT_DIR="${OUTPUTS_DIR}/static_viewer"
+EXPORT_DIR="${OUTPUTS_DIR}/static_viewer_cosyvoice3"
 MAX_SAMPLES=""
 OVERWRITE=true
 ASSET_MODE="hardlink"

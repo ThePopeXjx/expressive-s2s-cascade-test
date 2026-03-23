@@ -35,7 +35,7 @@ class Paths:
     output_root: Path
     transcript_dir: Path
     prompt_audio_dir: Path
-    speech_dir: Path
+    speech_cosyvoice3_dir: Path
     logs_dir: Path
 
 
@@ -52,9 +52,9 @@ def parse_args() -> argparse.Namespace:
         description="Generate Chinese speech from transcripts with CosyVoice3."
     )
 
-    parser.add_argument("--cosyvoice-root", default="/home/jiaxingxu/CosyVoice")
+    parser.add_argument("--cosyvoice3-root", default="/home/jiaxingxu/CosyVoice")
     parser.add_argument(
-        "--cosyvoice-model-dir",
+        "--cosyvoice3-model-dir",
         default="/mnt/data1/jiaxingxu/pretrained_models/Fun-CosyVoice3-0.5B",
     )
 
@@ -64,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--transcript-dir", default=None)
     parser.add_argument("--prompt-audio-dir", default=None)
-    parser.add_argument("--speech-dir", default=None)
+    parser.add_argument("--speech-cosyvoice3-dir", default=None)
 
     parser.add_argument(
         "--system-prompt",
@@ -105,7 +105,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--logs-dir", default="/home/jiaxingxu/expressive-s2s/cascade-test/logs")
     parser.add_argument("--log-level", default="INFO")
-    parser.add_argument("--log-file-prefix", default="run_tts")
+    parser.add_argument("--log-file-prefix", default="run_tts_cosyvoice3")
 
     return parser.parse_args()
 
@@ -114,20 +114,24 @@ def setup_paths(args: argparse.Namespace) -> Paths:
     output_root = Path(args.output_dir)
     transcript_dir = Path(args.transcript_dir) if args.transcript_dir else output_root / "transcript"
     prompt_audio_dir = Path(args.prompt_audio_dir) if args.prompt_audio_dir else output_root / "audio"
-    speech_dir = Path(args.speech_dir) if args.speech_dir else output_root / "speech"
+    speech_cosyvoice3_dir = (
+        Path(args.speech_cosyvoice3_dir)
+        if args.speech_cosyvoice3_dir
+        else output_root / "speech_cosyvoice3"
+    )
     logs_dir = Path(args.logs_dir)
 
     output_root.mkdir(parents=True, exist_ok=True)
     transcript_dir.mkdir(parents=True, exist_ok=True)
     prompt_audio_dir.mkdir(parents=True, exist_ok=True)
-    speech_dir.mkdir(parents=True, exist_ok=True)
+    speech_cosyvoice3_dir.mkdir(parents=True, exist_ok=True)
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     return Paths(
         output_root=output_root,
         transcript_dir=transcript_dir,
         prompt_audio_dir=prompt_audio_dir,
-        speech_dir=speech_dir,
+        speech_cosyvoice3_dir=speech_cosyvoice3_dir,
         logs_dir=logs_dir,
     )
 
@@ -136,7 +140,7 @@ def setup_logger(logs_dir: Path, prefix: str, level: str) -> tuple[logging.Logge
     timestamp = datetime.now(ET_TZ).strftime("%m%d%H%M")
     log_path = logs_dir / f"{prefix}_{timestamp}.log"
 
-    logger = logging.getLogger("tts")
+    logger = logging.getLogger("tts_cosyvoice3")
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     logger.handlers.clear()
 
@@ -156,8 +160,8 @@ def setup_logger(logs_dir: Path, prefix: str, level: str) -> tuple[logging.Logge
     return logger, log_path
 
 
-def setup_cosyvoice_import(cosyvoice_root: Path) -> None:
-    root = cosyvoice_root.resolve()
+def setup_cosyvoice3_import(cosyvoice3_root: Path) -> None:
+    root = cosyvoice3_root.resolve()
     matcha_path = root / "third_party" / "Matcha-TTS"
 
     if str(root) not in sys.path:
@@ -166,13 +170,13 @@ def setup_cosyvoice_import(cosyvoice_root: Path) -> None:
         sys.path.insert(0, str(matcha_path))
 
 
-def load_cosyvoice(cosyvoice_root: Path, model_dir: Path, logger: logging.Logger):
-    setup_cosyvoice_import(cosyvoice_root)
+def load_cosyvoice3(cosyvoice3_root: Path, model_dir: Path, logger: logging.Logger):
+    setup_cosyvoice3_import(cosyvoice3_root)
     try:
         from cosyvoice.cli.cosyvoice import AutoModel  # type: ignore
     except Exception as exc:  # pragma: no cover
         raise ImportError(
-            f"Failed to import CosyVoice from root={cosyvoice_root}. "
+            f"Failed to import CosyVoice from root={cosyvoice3_root}. "
             "Please verify CosyVoice repo path and dependencies."
         ) from exc
 
@@ -227,7 +231,7 @@ def build_items(args: argparse.Namespace, paths: Paths, logger: logging.Logger) 
     for path in selected:
         item_id = path.stem
         prompt_audio_path = paths.prompt_audio_dir / f"{item_id}.wav"
-        output_path = paths.speech_dir / f"{item_id}.wav"
+        output_path = paths.speech_cosyvoice3_dir / f"{item_id}.wav"
         items.append(
             Item(
                 item_id=item_id,
@@ -238,11 +242,11 @@ def build_items(args: argparse.Namespace, paths: Paths, logger: logging.Logger) 
         )
 
     logger.info(
-        "Prepared %d items (transcript_dir=%s, prompt_audio_dir=%s, speech_dir=%s)",
+        "Prepared %d items (transcript_dir=%s, prompt_audio_dir=%s, speech_cosyvoice3_dir=%s)",
         len(items),
         paths.transcript_dir,
         paths.prompt_audio_dir,
-        paths.speech_dir,
+        paths.speech_cosyvoice3_dir,
     )
     return items
 
@@ -259,16 +263,16 @@ def build_tts_text(chinese_text: str, system_prompt: str, use_system_prompt: boo
     return f"{system_prompt}{chinese_text}" if use_system_prompt else chinese_text
 
 
-def run_inference(cosyvoice: Any, tts_text: str, prompt_wav: Path, stream: bool) -> torch.Tensor:
+def run_inference_cosyvoice3(cosyvoice3: Any, tts_text: str, prompt_wav: Path, stream: bool) -> torch.Tensor:
     chunks: list[torch.Tensor] = []
-    for out in cosyvoice.inference_cross_lingual(tts_text, str(prompt_wav), stream=stream):
+    for out in cosyvoice3.inference_cross_lingual(tts_text, str(prompt_wav), stream=stream):
         speech = out["tts_speech"]
         if not torch.is_tensor(speech):
             speech = torch.tensor(speech)
         chunks.append(speech.detach().cpu())
 
     if not chunks:
-        raise RuntimeError("CosyVoice returned no chunks.")
+        raise RuntimeError("CosyVoice3 returned no chunks.")
 
     if len(chunks) == 1:
         return chunks[0]
@@ -286,12 +290,12 @@ def main() -> None:
     paths = setup_paths(args)
     logger, log_path = setup_logger(paths.logs_dir, args.log_file_prefix, args.log_level)
 
-    logger.info("Starting TTS pipeline.")
+    logger.info("Starting TTS CosyVoice3 pipeline.")
     logger.info("Log file: %s", log_path)
 
-    cosyvoice = load_cosyvoice(
-        cosyvoice_root=Path(args.cosyvoice_root),
-        model_dir=Path(args.cosyvoice_model_dir),
+    cosyvoice3 = load_cosyvoice3(
+        cosyvoice3_root=Path(args.cosyvoice3_root),
+        model_dir=Path(args.cosyvoice3_model_dir),
         logger=logger,
     )
 
@@ -319,15 +323,15 @@ def main() -> None:
                 zh_text = read_transcript(item.transcript_path)
                 tts_text = build_tts_text(zh_text, args.system_prompt, args.use_system_prompt)
 
-                speech = run_inference(
-                    cosyvoice=cosyvoice,
+                speech = run_inference_cosyvoice3(
+                    cosyvoice3=cosyvoice3,
                     tts_text=tts_text,
                     prompt_wav=item.prompt_audio_path,
                     stream=args.stream,
                 )
 
                 io_futures.append(
-                    submit_pool.submit(save_wav, item.output_path, speech, cosyvoice.sample_rate)
+                    submit_pool.submit(save_wav, item.output_path, speech, cosyvoice3.sample_rate)
                 )
                 processed += 1
 
