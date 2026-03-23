@@ -4,14 +4,20 @@ This project currently includes 2 steps:
 
 - Step 1 (`Qwen-Omni-30B`): transcribe / translate Expresso audio to Chinese text
 - Step 2 (`CosyVoice3`): synthesize Chinese speech with original speaker style/emotion prompt audio
+- Viewer (`Streamlit`): browse samples with source/target audio and text
+- Static Export: generate shareable offline HTML package
 
 ## Project Layout
 
 - `codes/transcribe.py`: Step-1 pipeline
 - `codes/tts.py`: Step-2 pipeline
+- `codes/view_samples.py`: sample viewer web app
+- `codes/export_static_html.py`: export static HTML package
 - `scripts/run_transcribe.sh`: Step-1 main runner
 - `scripts/run_transcirbe.sh`: Step-1 compatibility entry
 - `scripts/run_tts.sh`: Step-2 runner
+- `scripts/run_viewer.sh`: viewer runner
+- `scripts/run_export_html.sh`: static HTML exporter
 - `outputs/`:
   - `audio/{id}.wav`
   - `transcript/{id}.json`
@@ -30,6 +36,12 @@ pip install -r requirements-step1.txt
 ```
 
 For Step-2, refer to [CosyVoice3 official repository](https://github.com/FunAudioLLM/CosyVoice) for detailed installation guide.
+
+For Viewer:
+
+```bash
+pip install -r requirements-viewer.txt
+```
 
 ## Step 1 Usage (Transcribe / Translate)
 
@@ -71,3 +83,52 @@ Both steps support:
 - `--continue-on-error` / `--stop-on-error`
 - `--io-workers`
 - `--log-level`, `--log-file-prefix`, `--logs-dir`
+
+## Viewer Usage (Remote Server -> Local Browser)
+
+On remote server:
+
+```bash
+bash scripts/run_viewer.sh
+```
+
+Then on your local machine (new terminal), create SSH tunnel:
+
+```bash
+ssh -L 8501:127.0.0.1:8501 <your_user>@<your_server_host>
+```
+
+Open in local browser:
+
+```text
+http://127.0.0.1:8501
+```
+
+## Static HTML Export (Recommended for Sharing)
+
+Generate static package:
+
+```bash
+bash scripts/run_export_html.sh
+```
+
+Default output directory:
+
+```text
+outputs/static_viewer/
+```
+
+Default exporter behavior uses `--asset-mode hardlink` to avoid duplicating local disk usage while preparing package.
+
+It contains:
+
+- `index.html`
+- `audio/{id}.wav` (source audio)
+- `speech/{id}.wav` (target speech)
+
+You can zip and send it to collaborators:
+
+```bash
+cd outputs
+zip -r static_viewer.zip static_viewer
+```

@@ -15,6 +15,7 @@ outputs/audio/*.wav
 outputs/speech/*.wav
 outputs/transcript/*.json
 outputs/metadata/*.json
+outputs/static_viewer/
 
 # Hugging Face / model caches (if accidentally created inside repo)
 .cache/
