@@ -3,7 +3,9 @@
 This project currently includes 2 steps:
 
 - Step 1 (`Qwen-Omni-30B`): transcribe / translate Expresso audio to Chinese text
-- Step 2 (`CosyVoice3`): synthesize Chinese speech with original speaker style/emotion prompt audio
+- Step 2: synthesize Chinese speech with original speaker style/emotion prompt audio
+- Step 2 Approach A: `CosyVoice3`
+- Step 2 Approach B: `IndexTTS2`
 - Viewer (`Streamlit`): browse samples with source/target audio and text
 - Static Export: generate shareable offline HTML package
 
@@ -11,11 +13,12 @@ This project currently includes 2 steps:
 
 - `codes/transcribe.py`: Step-1 pipeline
 - `codes/tts_cosyvoice3.py`: Step-2 CosyVoice3 pipeline
+- `codes/tts_indextts2.py`: Step-2 IndexTTS2 pipeline
 - `codes/view_samples.py`: sample viewer web app
 - `codes/export_static_html.py`: export static HTML package
 - `scripts/run_transcribe.sh`: Step-1 main runner
-- `scripts/run_transcirbe.sh`: Step-1 compatibility entry
 - `scripts/run_tts_cosyvoice3.sh`: Step-2 CosyVoice3 runner
+- `scripts/run_tts_indextts2.sh`: Step-2 IndexTTS2 runner
 - `scripts/run_viewer.sh`: viewer runner
 - `scripts/run_export_html.sh`: static HTML exporter
 - `outputs/`:
@@ -23,11 +26,12 @@ This project currently includes 2 steps:
   - `transcript/{id}.json`
   - `metadata/{id}.json`
   - `speech_cosyvoice3/{id}.wav`
-- `logs/`: run logs (`run_transcribe_MMDDHHMM.log`, `run_tts_cosyvoice3_MMDDHHMM.log`, `run_viewer_MMDDHHMM.log`)
+  - `speech_indextts2/{id}.wav`
+- `logs/`: run logs (`run_transcribe_MMDDHHMM.log`, `run_tts_cosyvoice3_MMDDHHMM.log`, `run_tts_indextts2_MMDDHHMM.log`, `run_viewer_MMDDHHMM.log`)
 
 ## Dependencies
 
-These two steps may need two seperate environments.
+These two steps may need seperate environments.
 
 For Step-1:
 
@@ -35,7 +39,9 @@ For Step-1:
 pip install -r requirements-step1.txt
 ```
 
-For Step-2, refer to [CosyVoice3 official repository](https://github.com/FunAudioLLM/CosyVoice) for detailed installation guide.
+For Step-2 CosyVoice3 implementation, refer to [CosyVoice3 official repository](https://github.com/FunAudioLLM/CosyVoice) for detailed installation guide. A conda environment is recommended.
+
+For Step-2 IndexTTS2 implementation, refer to [IndexTTS2 official repository](https://github.com/index-tts/index-tts) for detailed installation guide. An uv environment is recommended.
 
 For Viewer:
 
@@ -57,21 +63,43 @@ Key outputs:
 
 ## Step 2 Usage (TTS with Style Prompt)
 
+Approach A (CosyVoice3):
+
 ```bash
 bash scripts/run_tts_cosyvoice3.sh
 ```
 
-Step-2 input and output:
+Output speech:
+
+- `outputs/speech_cosyvoice3/{id}.wav`
+
+Approach B (IndexTTS2):
+
+```bash
+bash scripts/run_tts_indextts2.sh
+```
+
+Output speech:
+
+- `outputs/speech_indextts2/{id}.wav`
+
+Shared Step-2 input:
 
 - Input transcript: `outputs/transcript/{id}.json` (Chinese text in `transcript` field)
 - Input prompt audio: `outputs/audio/{id}.wav` (reference speaker style/emotion)
-- Output speech: `outputs/speech_cosyvoice3/{id}.wav`
 
-Implementation detail:
+Implementation detail (CosyVoice3):
 
 - Step-2 uses `CosyVoice3` `inference_cross_lingual(...)`
 - TTS text default format: `You are a helpful assistant.<|endofprompt|>{中文文本}`
 - CosyVoice import path is injected at runtime so `codes/tts_cosyvoice3.py` can import from external `/home/jiaxingxu/CosyVoice`
+
+Implementation detail (IndexTTS2):
+
+- Step-2 uses `IndexTTS2` Python API from `indextts.infer_v2`
+- Inference call pattern follows official repo examples:
+- `IndexTTS2(...).infer(spk_audio_prompt=..., text=..., output_path=..., emo_audio_prompt=...)`
+- `codes/tts_indextts2.py` injects `--indextts2-root` into `sys.path` for module import
 
 ## Useful Args
 

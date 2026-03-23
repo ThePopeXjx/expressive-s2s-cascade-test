@@ -17,7 +17,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--outputs-dir",
         default="/home/jiaxingxu/expressive-s2s/cascade-test/outputs",
-        help="Root outputs dir containing audio/ transcript/ metadata/ speech_cosyvoice3/.",
+        help="Root outputs dir containing audio/ transcript/ metadata/ speech_*/.",
     )
     parser.add_argument(
         "--export-dir",
@@ -41,6 +41,11 @@ def parse_args() -> argparse.Namespace:
         default="hardlink",
         help="How to place wav assets into export dir.",
     )
+    parser.add_argument(
+        "--target-speech-subdir",
+        default="speech_cosyvoice3",
+        help="Target speech subdir under outputs-dir (e.g., speech_cosyvoice3, speech_indextts2).",
+    )
     return parser.parse_args()
 
 
@@ -48,15 +53,17 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def build_records(outputs_dir: Path, max_samples: int | None) -> list[dict[str, Any]]:
-    speech_cosyvoice3_dir = outputs_dir / "speech_cosyvoice3"
+def build_records(
+    outputs_dir: Path, target_speech_subdir: str, max_samples: int | None
+) -> list[dict[str, Any]]:
+    speech_dir = outputs_dir / target_speech_subdir
     audio_dir = outputs_dir / "audio"
     transcript_dir = outputs_dir / "transcript"
     metadata_dir = outputs_dir / "metadata"
 
     records: list[dict[str, Any]] = []
-    for speech_cosyvoice3_path in sorted(speech_cosyvoice3_dir.glob("*.wav")):
-        item_id = speech_cosyvoice3_path.stem
+    for speech_path in sorted(speech_dir.glob("*.wav")):
+        item_id = speech_path.stem
         source_audio = audio_dir / f"{item_id}.wav"
         transcript_json = transcript_dir / f"{item_id}.json"
         metadata_json = metadata_dir / f"{item_id}.json"
@@ -87,7 +94,7 @@ def build_records(outputs_dir: Path, max_samples: int | None) -> list[dict[str, 
                 "source_text": source_text,
                 "target_transcript": target_transcript,
                 "source_audio": f"audio/{item_id}.wav",
-                "target_speech_cosyvoice3": f"speech_cosyvoice3/{item_id}.wav",
+                "target_speech": f"{target_speech_subdir}/{item_id}.wav",
             }
         )
 
@@ -97,9 +104,7 @@ def build_records(outputs_dir: Path, max_samples: int | None) -> list[dict[str, 
     return records
 
 
-def write_html(records: list[dict[str, Any]], export_dir: Path) -> None:
-    data_json = json.dumps(records, ensure_ascii=False)
-
+def write_html(export_dir: Path) -> None:
     html = f"""<!doctype html>
 <html lang=\"en\">
 <head>
@@ -164,12 +169,26 @@ def write_html(records: list[dict[str, Any]], export_dir: Path) -> None:
 
   <div class=\"cards\" id=\"cards\"></div>
 
-<script>
-const DATA = {data_json};
+<script src="./script.js"></script>
+</body>
+</html>
+"""
+
+    (export_dir / "index.html").write_text(html, encoding="utf-8")
+
+
+def write_script(records: list[dict[str, Any]], export_dir: Path) -> None:
+    data_json = json.dumps(records, ensure_ascii=False)
+    script = f"""const DATA = {data_json};
 const state = {{ q: "", speaker: "", style: "", page: 1, pageSize: 20 }};
 
 const el = (id) => document.getElementById(id);
-const esc = (s) => String(s || "").replace(/[&<>\"']/g, c => ({{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}}[c]));
+const esc = (s) => String(s || "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#39;");
 
 function fillFilters() {{
   const speakers = [...new Set(DATA.map(x => x.speaker_id).filter(Boolean))].sort();
@@ -224,7 +243,7 @@ function render() {{
           <div class="label">Target Transcript</div>
           <div class="text">${{esc(x.target_transcript)}}</div>
           <div class="label" style="margin-top:8px;">Target Speech</div>
-          <audio controls preload="none" src="${{esc(x.target_speech_cosyvoice3)}}"></audio>
+          <audio controls preload="none" src="${{esc(x.target_speech)}}"></audio>
         </div>
       </div>
     </section>
@@ -245,12 +264,9 @@ el("next").addEventListener("click", () => {{ state.page = state.page + 1; rende
 
 fillFilters();
 render();
-</script>
-</body>
-</html>
 """
 
-    (export_dir / "index.html").write_text(html, encoding="utf-8")
+    (export_dir / "script.js").write_text(script, encoding="utf-8")
 
 
 def place_asset(src: Path, dst: Path, mode: str) -> None:
@@ -268,21 +284,35 @@ def place_asset(src: Path, dst: Path, mode: str) -> None:
 
 
 def export_assets(
-    records: list[dict[str, Any]], outputs_dir: Path, export_dir: Path, mode: str
+    records: list[dict[str, Any]],
+    outputs_dir: Path,
+    export_dir: Path,
+    target_speech_subdir: str,
+    mode: str,
 ) -> None:
     dst_audio = export_dir / "audio"
-    dst_speech_cosyvoice3 = export_dir / "speech_cosyvoice3"
+    dst_speech = export_dir / target_speech_subdir
+    dst_metadata = export_dir / "metadata"
+    dst_transcript = export_dir / "transcript"
     dst_audio.mkdir(parents=True, exist_ok=True)
-    dst_speech_cosyvoice3.mkdir(parents=True, exist_ok=True)
+    dst_speech.mkdir(parents=True, exist_ok=True)
+    dst_metadata.mkdir(parents=True, exist_ok=True)
+    dst_transcript.mkdir(parents=True, exist_ok=True)
 
     for rec in records:
         item_id = rec["id"]
         place_asset(outputs_dir / "audio" / f"{item_id}.wav", dst_audio / f"{item_id}.wav", mode)
         place_asset(
-            outputs_dir / "speech_cosyvoice3" / f"{item_id}.wav",
-            dst_speech_cosyvoice3 / f"{item_id}.wav",
+            outputs_dir / target_speech_subdir / f"{item_id}.wav",
+            dst_speech / f"{item_id}.wav",
             mode,
         )
+        src_metadata = outputs_dir / "metadata" / f"{item_id}.json"
+        src_transcript = outputs_dir / "transcript" / f"{item_id}.json"
+        if src_metadata.exists():
+            place_asset(src_metadata, dst_metadata / f"{item_id}.json", mode)
+        if src_transcript.exists():
+            place_asset(src_transcript, dst_transcript / f"{item_id}.json", mode)
 
 
 def main() -> None:
@@ -298,14 +328,15 @@ def main() -> None:
 
     export_dir.mkdir(parents=True, exist_ok=True)
 
-    records = build_records(outputs_dir, args.max_samples)
+    records = build_records(outputs_dir, args.target_speech_subdir, args.max_samples)
     if not records:
         raise RuntimeError(
-            "No eligible samples found (need matching speech_cosyvoice3 + source audio)."
+            f"No eligible samples found (need matching {args.target_speech_subdir} + source audio)."
         )
 
-    export_assets(records, outputs_dir, export_dir, args.asset_mode)
-    write_html(records, export_dir)
+    export_assets(records, outputs_dir, export_dir, args.target_speech_subdir, args.asset_mode)
+    write_html(export_dir)
+    write_script(records, export_dir)
 
     print(f"Export complete: {export_dir}")
     print(f"Samples: {len(records)}")
