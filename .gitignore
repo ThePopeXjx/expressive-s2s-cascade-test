@@ -14,7 +14,9 @@ logs/*.log
 outputs/audio/*.wav
 outputs/speech_cosyvoice3/*.wav
 outputs/speech_indextts2/*.wav
+outputs/speech_fishaudio2/*.wav
 outputs/transcript/*.json
+outputs/transcript-ja/*.json
 outputs/metadata/*.json
 outputs/static_viewer_cosyvoice3/
 outputs/static_viewer_indextts2/

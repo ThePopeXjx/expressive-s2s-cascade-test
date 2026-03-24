@@ -6,6 +6,7 @@ This project currently includes 2 steps:
 - Step 2: synthesize Chinese speech with original speaker style/emotion prompt audio
 - Step 2 Approach A: `CosyVoice3`
 - Step 2 Approach B: `IndexTTS2`
+- Step 2 Approach C: `FishAudio2` (`fish-speech`)
 - Viewer (`Streamlit`): browse samples with source/target audio and text
 - Static Export: generate shareable offline HTML package
 
@@ -14,11 +15,13 @@ This project currently includes 2 steps:
 - `codes/transcribe.py`: Step-1 pipeline
 - `codes/tts_cosyvoice3.py`: Step-2 CosyVoice3 pipeline
 - `codes/tts_indextts2.py`: Step-2 IndexTTS2 pipeline
+- `codes/tts_fishaudio2.py`: Step-2 FishAudio2 pipeline
 - `codes/view_samples.py`: sample viewer web app
 - `codes/export_static_html.py`: export static HTML package
 - `scripts/run_transcribe.sh`: Step-1 main runner
 - `scripts/run_tts_cosyvoice3.sh`: Step-2 CosyVoice3 runner
 - `scripts/run_tts_indextts2.sh`: Step-2 IndexTTS2 runner
+- `scripts/run_tts_fishaudio2.sh`: Step-2 FishAudio2 runner
 - `scripts/run_viewer.sh`: viewer runner
 - `scripts/run_export_html.sh`: static HTML exporter
 - `outputs/`:
@@ -27,6 +30,7 @@ This project currently includes 2 steps:
   - `metadata/{id}.json`
   - `speech_cosyvoice3/{id}.wav`
   - `speech_indextts2/{id}.wav`
+  - `speech_fishaudio2/{id}.wav`
 - `logs/`: run logs (`run_transcribe_MMDDHHMM.log`, `run_tts_cosyvoice3_MMDDHHMM.log`, `run_tts_indextts2_MMDDHHMM.log`, `run_viewer_MMDDHHMM.log`)
 
 ## Dependencies
@@ -42,6 +46,8 @@ pip install -r requirements-step1.txt
 For Step-2 CosyVoice3 implementation, refer to [CosyVoice3 official repository](https://github.com/FunAudioLLM/CosyVoice) for detailed installation guide. A conda environment is recommended.
 
 For Step-2 IndexTTS2 implementation, refer to [IndexTTS2 official repository](https://github.com/index-tts/index-tts) for detailed installation guide. An uv environment is recommended.
+
+For Step-2 FishAudio2 implementation, refer to [fish-speech official repository](https://github.com/fishaudio/fish-speech) for detailed installation guide. A conda environment is recommended.
 
 For Viewer:
 
@@ -83,6 +89,16 @@ Output speech:
 
 - `outputs/speech_indextts2/{id}.wav`
 
+Approach C (FishAudio2):
+
+```bash
+bash scripts/run_tts_fishaudio2.sh
+```
+
+Output speech:
+
+- `outputs/speech_fishaudio2/{id}.wav`
+
 Shared Step-2 input:
 
 - Input transcript: `outputs/transcript/{id}.json` (Chinese text in `transcript` field)
@@ -100,6 +116,12 @@ Implementation detail (IndexTTS2):
 - Inference call pattern follows official repo examples:
 - `IndexTTS2(...).infer(spk_audio_prompt=..., text=..., output_path=..., emo_audio_prompt=...)`
 - `codes/tts_indextts2.py` injects `--indextts2-root` into `sys.path` for module import
+
+Implementation detail (FishAudio2):
+
+- Step-2 uses fish-speech **command-line inference same-path API** directly (no CLI shell call):
+- `init_model(...)` + `load_codec_model(...)` + `encode_audio(...)` + `generate_long(...)` + `decode_to_audio(...)`
+- Per sample inference: prompt audio -> VQ prompt tokens, then Chinese target text -> semantic codes -> waveform
 
 ## Useful Args
 
