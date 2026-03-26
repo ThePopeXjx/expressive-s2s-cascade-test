@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         default="speech_cosyvoice3",
         help="Target speech subdir under outputs-dir (e.g., speech_cosyvoice3, speech_indextts2).",
     )
+    parser.add_argument(
+        "--transcript-subdir",
+        default="transcript",
+        help="Transcript subdir under outputs-dir (e.g., transcript, transcript-ja).",
+    )
     return parser.parse_args()
 
 
@@ -54,11 +59,14 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def build_records(
-    outputs_dir: Path, target_speech_subdir: str, max_samples: int | None
+    outputs_dir: Path,
+    target_speech_subdir: str,
+    transcript_subdir: str,
+    max_samples: int | None,
 ) -> list[dict[str, Any]]:
     speech_dir = outputs_dir / target_speech_subdir
     audio_dir = outputs_dir / "audio"
-    transcript_dir = outputs_dir / "transcript"
+    transcript_dir = outputs_dir / transcript_subdir
     metadata_dir = outputs_dir / "metadata"
 
     records: list[dict[str, Any]] = []
@@ -288,6 +296,7 @@ def export_assets(
     outputs_dir: Path,
     export_dir: Path,
     target_speech_subdir: str,
+    transcript_subdir: str,
     mode: str,
 ) -> None:
     dst_audio = export_dir / "audio"
@@ -308,7 +317,7 @@ def export_assets(
             mode,
         )
         src_metadata = outputs_dir / "metadata" / f"{item_id}.json"
-        src_transcript = outputs_dir / "transcript" / f"{item_id}.json"
+        src_transcript = outputs_dir / transcript_subdir / f"{item_id}.json"
         if src_metadata.exists():
             place_asset(src_metadata, dst_metadata / f"{item_id}.json", mode)
         if src_transcript.exists():
@@ -328,13 +337,25 @@ def main() -> None:
 
     export_dir.mkdir(parents=True, exist_ok=True)
 
-    records = build_records(outputs_dir, args.target_speech_subdir, args.max_samples)
+    records = build_records(
+        outputs_dir,
+        args.target_speech_subdir,
+        args.transcript_subdir,
+        args.max_samples,
+    )
     if not records:
         raise RuntimeError(
             f"No eligible samples found (need matching {args.target_speech_subdir} + source audio)."
         )
 
-    export_assets(records, outputs_dir, export_dir, args.target_speech_subdir, args.asset_mode)
+    export_assets(
+        records,
+        outputs_dir,
+        export_dir,
+        args.target_speech_subdir,
+        args.transcript_subdir,
+        args.asset_mode,
+    )
     write_html(export_dir)
     write_script(records, export_dir)
 

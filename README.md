@@ -171,20 +171,29 @@ bash scripts/run_export_html.sh
 Default output directory:
 
 ```text
-outputs/static_viewer_cosyvoice3/
+outputs/static_viewer_fishaudio2/
 ```
+
+`run_export_html.sh` passes these key args:
+
+- `--target-speech-subdir` (e.g. `speech_cosyvoice3`, `speech_indextts2`, `speech_fishaudio2`)
+- `--transcript-subdir` (e.g. `transcript`, `transcript-ja`)
+- `--asset-mode` (`hardlink` by default)
 
 Default exporter behavior uses `--asset-mode hardlink` to avoid duplicating local disk usage while preparing package.
 
 It contains:
 
 - `index.html`
+- `script.js`
 - `audio/{id}.wav` (source audio)
-- `speech_cosyvoice3/{id}.wav` (target speech)
+- `{target-speech-subdir}/{id}.wav` (target speech)
+- `metadata/{id}.json`
+- `{transcript-subdir}/{id}.json`
 
 You can zip and send it to collaborators:
 
 ```bash
 cd outputs
-zip -r static_viewer_cosyvoice3.zip static_viewer_cosyvoice3
+zip -r static_viewer_fishaudio2.zip static_viewer_fishaudio2
 ```

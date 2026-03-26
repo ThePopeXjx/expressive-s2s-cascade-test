@@ -20,6 +20,7 @@ outputs/transcript-ja/*.json
 outputs/metadata/*.json
 outputs/static_viewer_cosyvoice3/
 outputs/static_viewer_indextts2/
+outputs/static_viewer_fishaudio2/
 
 # Hugging Face / model caches (if accidentally created inside repo)
 .cache/
